@@ -7,7 +7,7 @@ spring:
     active: dev
   datasource:
     driver-class-name: ${hm-dp.datasource.driver-class-name}
-    url: jdbc:mysql://${hm-dp.datasource.host}:${hm-dp.datasource.port}/${hm-dp.datasource.database}?useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://${hm-dp.datasource.host}:${hm-dp.datasource.port}/${hm-dp.datasource.database}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
     username: ${hm-dp.datasource.username}
     password: ${hm-dp.datasource.password}
   redis:
