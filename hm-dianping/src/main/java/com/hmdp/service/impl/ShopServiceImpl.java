@@ -57,13 +57,13 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
             //将空值写入redis，减轻缓存穿透的影响
             stringRedisTemplate.opsForValue().set(
                     shopKey, "",
-                    RedisConstants.CACHE_NULL_TTL, TimeUnit.MINUTES);
+                    RedisConstants.generateRandomTtl(RedisConstants.CACHE_NULL_TTL, RedisConstants.CACHE_NULL_RANDOM_TTL), TimeUnit.SECONDS);
             return Result.fail("店铺不存在");
         }
         //写入缓存
         stringRedisTemplate.opsForValue().set(
                 shopKey, JSONUtil.toJsonStr(shop),
-                RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
+                RedisConstants.generateRandomTtl(RedisConstants.CACHE_SHOP_TTL, RedisConstants.CACHE_SHOP_RANDOM_TTL), TimeUnit.SECONDS);
         //返回数据到前端
         log.debug("数据库:查询店铺id为{}成功", id);
         return Result.ok(shop);
