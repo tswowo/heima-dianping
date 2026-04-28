@@ -1,5 +1,7 @@
 package com.hmdp.utils;
 
+import java.util.concurrent.TimeUnit;
+
 public class RedisConstants {
     public static final String LOGIN_CODE_KEY = "login:code:";
     public static final Long LOGIN_CODE_TTL = 2L;
@@ -25,14 +27,28 @@ public class RedisConstants {
     public static final String USER_SIGN_KEY = "sign:";
 
     /**
-     * 生成带随机值的TTL（防止缓存雪崩）
-     *
-     * @param baseTtlMinutes     基础TTL（分钟）
-     * @param randomRangeSeconds 随机范围（秒）
-     * @return 带随机值的TTL（秒）
+     * 生成带随机值的TTL（返回秒）
      */
-    static public long generateRandomTtl(long baseTtlMinutes, long randomRangeSeconds) {
-        long randomSeconds = (long) (Math.random() * randomRangeSeconds);
-        return baseTtlMinutes * 60L + randomSeconds;
+    static public long generateRandomTtlInSeconds(long baseTtl, TimeUnit baseUnit, long randomRange, TimeUnit randomUnit) {
+        long baseSeconds = baseUnit.toSeconds(baseTtl);
+        long randomSeconds = randomUnit.toSeconds((long) (Math.random() * randomRange));
+        return baseSeconds + randomSeconds;
     }
+
+    /**
+     * 生成带随机值的TTL（返回分钟）
+     */
+    static public long generateRandomTtlInMinutes(long baseTtl, TimeUnit baseUnit, long randomRange, TimeUnit randomUnit) {
+        long totalSeconds = generateRandomTtlInSeconds(baseTtl, baseUnit, randomRange, randomUnit);
+        return totalSeconds / 60;
+    }
+
+    /**
+     * 生成带随机值的TTL（返回小时）
+     */
+    static public long generateRandomTtlInHours(long baseTtl, TimeUnit baseUnit, long randomRange, TimeUnit randomUnit) {
+        long totalSeconds = generateRandomTtlInSeconds(baseTtl, baseUnit, randomRange, randomUnit);
+        return totalSeconds / 3600;
+    }
+
 }
