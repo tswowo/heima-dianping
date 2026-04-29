@@ -44,6 +44,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     public Result seckillVoucher(Long voucherId) {
         //查询优惠券信息
         SeckillVoucher voucher = iSeckillVoucherService.getById(voucherId);
+        if (voucher == null) {
+            log.warn("{}优惠券不存在", voucherId);
+            return Result.fail("优惠券不存在");
+        }
         //判断是否在秒杀时间段内
         if (voucher.getBeginTime().isAfter(LocalDateTime.now())) {
             log.warn("{}优惠券抢购尚未开始", voucherId);
@@ -65,7 +69,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         SimpleRedisLock lock = new SimpleRedisLock("order:" + userID, stringRedisTemplate);
         //获取锁
         boolean isLock = lock.tryLock(1200L);
-        if(!isLock){
+        if (!isLock) {
             //获取锁失败,返回失败
             return Result.fail("请勿重复下单");
         }
@@ -73,7 +77,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         try {
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId, userID);
-        }finally {
+        } finally {
             lock.unLock();
         }
     }
@@ -81,38 +85,38 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Override
     @Transactional
     public Result createVoucherOrder(Long voucherId, Long userID) {
-            //一人一单
-            //查询订单
-            int count = query().eq("user_id", userID)
-                    .eq("voucher_id", voucherId)
-                    .count();
-            //判断是否存在
-            if (count > 0) {
-                log.warn("用户{}重复抢购{}优惠券", userID, voucherId);
-                return Result.fail("用户重复抢购");
-            }
-            //扣减库存
-            boolean success =iSeckillVoucherService.update()
-                    .setSql("stock = stock - 1")
-                    .eq("voucher_id", voucherId)
-                    .gt("stock", 0)
-                    .update();
-            if (!success) {
-                log.warn("{}优惠券已售罄", voucherId);
-                return Result.fail("优惠券已售罄");
-            }
-            //创建订单
-            VoucherOrder voucherOrder = new VoucherOrder();
-            //订单id
-            long orderId = redisIdWorker.nextId("order");
-            voucherOrder.setId(orderId);
-            //用户id
-            voucherOrder.setUserId(userID);
-            //优惠券id
-            voucherOrder.setVoucherId(voucherId);
+        //一人一单
+        //查询订单
+        int count = query().eq("user_id", userID)
+                .eq("voucher_id", voucherId)
+                .count();
+        //判断是否存在
+        if (count > 0) {
+            log.warn("用户{}重复抢购{}优惠券", userID, voucherId);
+            return Result.fail("用户重复抢购");
+        }
+        //扣减库存
+        boolean success = iSeckillVoucherService.update()
+                .setSql("stock = stock - 1")
+                .eq("voucher_id", voucherId)
+                .gt("stock", 0)
+                .update();
+        if (!success) {
+            log.warn("{}优惠券已售罄", voucherId);
+            return Result.fail("优惠券已售罄");
+        }
+        //创建订单
+        VoucherOrder voucherOrder = new VoucherOrder();
+        //订单id
+        long orderId = redisIdWorker.nextId("order");
+        voucherOrder.setId(orderId);
+        //用户id
+        voucherOrder.setUserId(userID);
+        //优惠券id
+        voucherOrder.setVoucherId(voucherId);
 
-            save(voucherOrder);
-            return Result.ok(orderId);
+        save(voucherOrder);
+        return Result.ok(orderId);
     }
 
 }

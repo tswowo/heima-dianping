@@ -1,15 +1,20 @@
 package com.hmdp.utils;
 
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import cn.hutool.core.lang.UUID;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
-public class SimpleRedisLock implements ILock{
+public class SimpleRedisLock implements ILock {
 
     private final String name;
     private final StringRedisTemplate stringRedisTemplate;
-    private static final String ID_PREFIX = UUID.randomUUID().toString(true)+"-";
+    private static final DefaultRedisScript<Long> UNLOCK_SCRIPT;
+    private static final String ID_PREFIX = UUID.randomUUID().toString(true) + "-";
     private static final String KEY_PREFIX = "lock:";
 
     public SimpleRedisLock(String name, StringRedisTemplate stringRedisTemplate) {
@@ -17,12 +22,18 @@ public class SimpleRedisLock implements ILock{
         this.stringRedisTemplate = stringRedisTemplate;
     }
 
+    static {
+        UNLOCK_SCRIPT = new DefaultRedisScript<>();
+        UNLOCK_SCRIPT.setLocation(new ClassPathResource("unlock.lua"));
+        UNLOCK_SCRIPT.setResultType(Long.class);
+    }
+
     @Override
     public boolean tryLock(Long timeoutSec) {
         //获取线程标识
-        String threadId = ID_PREFIX+Thread.currentThread().getId();
+        String threadId = ID_PREFIX + Thread.currentThread().getId();
         //获取锁
-        Boolean success=stringRedisTemplate.opsForValue().setIfAbsent(
+        Boolean success = stringRedisTemplate.opsForValue().setIfAbsent(
                 KEY_PREFIX + name,
                 threadId,
                 timeoutSec, TimeUnit.SECONDS);
@@ -31,14 +42,10 @@ public class SimpleRedisLock implements ILock{
 
     @Override
     public void unLock() {
-        //查看是否是当前线程的锁
-        String threadId = ID_PREFIX+Thread.currentThread().getId();
-        //获取锁中标识
-        String id = stringRedisTemplate.opsForValue().get(KEY_PREFIX + name);
-        //判断锁是否被其他线程占用
-        if(threadId.equals(id)){
-            //未被占用,则正常释放锁
-            stringRedisTemplate.delete(KEY_PREFIX + name);
-        }
+        stringRedisTemplate.execute(
+                UNLOCK_SCRIPT,
+                Collections.singletonList(KEY_PREFIX + name),
+                ID_PREFIX + Thread.currentThread().getId()
+        );
     }
 }
