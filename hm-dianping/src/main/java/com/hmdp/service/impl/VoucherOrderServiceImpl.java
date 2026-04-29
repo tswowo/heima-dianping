@@ -58,10 +58,15 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             return Result.fail("优惠券已售罄");
         }
         //扣减库存
-        iSeckillVoucherService.update()
+         boolean success =iSeckillVoucherService.update()
                 .setSql("stock = stock - 1")
                 .eq("voucher_id", voucherId)
+                .gt("stock", 0)
                 .update();
+        if (!success) {
+            log.warn("{}优惠券已售罄", voucherId);
+            return Result.fail("优惠券已售罄");
+        }
         //创建订单
         VoucherOrder voucherOrder = new VoucherOrder();
         //订单id
