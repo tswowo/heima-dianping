@@ -11,10 +11,20 @@ spring:
     username: ${hm-dp.datasource.username}
     password: ${hm-dp.datasource.password}
   redis:
-    host: ${hm-dp.redis.host}
-    port: ${hm-dp.redis.port}
-#    password: ${hm-dp.redis.password}
-    database: ${hm-dp.redis.database}
+    host: ${hm-dp.redis.instance1.host}
+    port: ${hm-dp.redis.instance1.port}
+    password: ${hm-dp.redis.instance1.password}
+    database: ${hm-dp.redis.instance1.database}
+    instance1:
+      host: ${hm-dp.redis.instance1.host}
+      port: ${hm-dp.redis.instance1.port}
+      password: ${hm-dp.redis.instance1.password}
+      database: ${hm-dp.redis.instance1.database}
+    instance2:
+      host: ${hm-dp.redis.instance2.host}
+      port: ${hm-dp.redis.instance2.port}
+      password: ${hm-dp.redis.instance2.password}
+      database: ${hm-dp.redis.instance2.database}
     lettuce:
       pool:
         max-active: 10

@@ -16,6 +16,7 @@ import org.springframework.aop.framework.AopContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
@@ -33,12 +34,14 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     private final RedisIdWorker redisIdWorker;
     private final ISeckillVoucherService iSeckillVoucherService;
-    private final RedissonClient redissonClient;
+    @Resource
+    private RedissonClient redissonClient1;
+    @Resource
+    private RedissonClient redissonClient2;
 
-    public VoucherOrderServiceImpl(RedisIdWorker redisIdWorker, ISeckillVoucherService iSeckillVoucherService, RedissonClient redissonClient) {
+    public VoucherOrderServiceImpl(RedisIdWorker redisIdWorker, ISeckillVoucherService iSeckillVoucherService) {
         this.redisIdWorker = redisIdWorker;
         this.iSeckillVoucherService = iSeckillVoucherService;
-        this.redissonClient = redissonClient;
     }
 
     @Override
@@ -67,13 +70,15 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         //处理校验
         //先加Redisson分布式锁
         //创建锁对象
-        RLock lock = redissonClient.getLock("lock:order:" + userID);
+        RLock lock1 = redissonClient1.getLock("lock:order:" + userID);
+        RLock lock2 = redissonClient2.getLock("lock:order:" + userID);
+        RLock multiLock = redissonClient1.getMultiLock(lock1, lock2);
         //获取锁
         boolean isLock;
         try {
-            isLock = lock.tryLock(1, 10, TimeUnit.SECONDS);
+            isLock = multiLock.tryLock(1, 10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            log.warn("获取锁被中断");
+            log.error("获取锁被中断");
             Thread.currentThread().interrupt();
             return Result.fail("系统繁忙");
         }
@@ -86,7 +91,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId, userID);
         } finally {
-            lock.unlock();
+            multiLock.unlock();
         }
     }
 
