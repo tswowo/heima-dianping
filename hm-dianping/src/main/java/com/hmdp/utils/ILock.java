@@ -4,5 +4,5 @@ public interface ILock {
 
     boolean tryLock(Long timeoutSec);
 
-    void unLock();
+    void unlock();
 }

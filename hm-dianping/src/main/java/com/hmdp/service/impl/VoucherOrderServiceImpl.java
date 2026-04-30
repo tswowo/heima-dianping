@@ -8,15 +8,16 @@ import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIdWorker;
-import com.hmdp.utils.SimpleRedisLock;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>
@@ -31,13 +32,13 @@ import java.time.LocalDateTime;
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
 
     private final RedisIdWorker redisIdWorker;
-    private final StringRedisTemplate stringRedisTemplate;
     private final ISeckillVoucherService iSeckillVoucherService;
+    private final RedissonClient redissonClient;
 
-    public VoucherOrderServiceImpl(RedisIdWorker redisIdWorker, StringRedisTemplate stringRedisTemplate, ISeckillVoucherService iSeckillVoucherService) {
+    public VoucherOrderServiceImpl(RedisIdWorker redisIdWorker, ISeckillVoucherService iSeckillVoucherService, RedissonClient redissonClient) {
         this.redisIdWorker = redisIdWorker;
-        this.stringRedisTemplate = stringRedisTemplate;
         this.iSeckillVoucherService = iSeckillVoucherService;
+        this.redissonClient = redissonClient;
     }
 
     @Override
@@ -64,11 +65,18 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
         Long userID = UserHolder.getUser().getId();
         //处理校验
-        //先加Redis悲观锁
+        //先加Redisson分布式锁
         //创建锁对象
-        SimpleRedisLock lock = new SimpleRedisLock("order:" + userID, stringRedisTemplate);
+        RLock lock = redissonClient.getLock("lock:order:" + userID);
         //获取锁
-        boolean isLock = lock.tryLock(1200L);
+        boolean isLock;
+        try {
+            isLock = lock.tryLock(1, 10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.warn("获取锁被中断");
+            Thread.currentThread().interrupt();
+            return Result.fail("系统繁忙");
+        }
         if (!isLock) {
             //获取锁失败,返回失败
             return Result.fail("请勿重复下单");
@@ -78,7 +86,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId, userID);
         } finally {
-            lock.unLock();
+            lock.unlock();
         }
     }
 
