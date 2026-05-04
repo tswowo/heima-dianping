@@ -53,7 +53,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         //生成验证码
         String code = RandomUtil.randomNumbers(6);
         //保存验证码 到redis
-        stringRedisTemplate.opsForValue().set(RedisConstants.LOGIN_CODE_KEY +phone,code,RedisConstants.LOGIN_CODE_TTL, TimeUnit.MINUTES);
+        stringRedisTemplate.opsForValue().set(RedisConstants.LOGIN_CODE_KEY + phone, code, RedisConstants.LOGIN_CODE_TTL, TimeUnit.MINUTES);
         //发送验证码
         log.debug("发送短信验证码成功，验证码：{}", code);
         //返回ok
@@ -76,6 +76,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             return Result.fail("验证码错误");
         }
         session.removeAttribute("code");
+        stringRedisTemplate.delete(RedisConstants.LOGIN_CODE_KEY + loginForm.getPhone());
         //根据手机号查询用户
         String phone = loginForm.getPhone();
         User user = query().eq("phone", phone).one();
@@ -89,18 +90,34 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         String token = UUID.randomUUID().toString(true);
         //2.将user转为json
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
-        Map<String, Object> userMap= BeanUtil.beanToMap(userDTO,new HashMap<>(),
+        Map<String, Object> userMap = BeanUtil.beanToMap(userDTO, new HashMap<>(),
                 CopyOptions.create()
                         .setIgnoreNullValue(true)
-                        .setFieldValueEditor((fieldName,fieldValue)->fieldValue.toString())
+                        .setFieldValueEditor((fieldName, fieldValue) -> fieldValue.toString())
         );
         //3.保存到redis hash
         String tokenKey = RedisConstants.LOGIN_USER_KEY + token;
         stringRedisTemplate.opsForHash().putAll(tokenKey, userMap);
-        stringRedisTemplate.expire(tokenKey,RedisConstants.LOGIN_USER_TTL, TimeUnit.MINUTES);
+        stringRedisTemplate.expire(tokenKey, RedisConstants.LOGIN_USER_TTL, TimeUnit.MINUTES);
 
         //返回token到前端
         return Result.ok(token);
+    }
+
+    @Override
+    public Result logout(String token) {
+        log.debug("退出登录，login:token:{}", token);
+        if (token == null || token.isEmpty()) {
+            return Result.fail("未登录");
+        }
+        // 删除Redis中的用户登录信息
+        String tokenKey = RedisConstants.LOGIN_USER_KEY + token;
+        if (stringRedisTemplate.delete(tokenKey)) {
+            log.debug("已删除login:token:{}", tokenKey);
+        } else {
+            log.debug("未找到login:token:{}", tokenKey);
+        }
+        return Result.ok();
     }
 
     private User createUserWithPhone(String phone) {

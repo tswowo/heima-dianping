@@ -26,7 +26,7 @@ public class MvcConfig implements WebMvcConfigurer {
                         "/shop/**",
                         "/voucher/**",
                         "/shop-type/**",
-                        "/upload/**",//todo 测试用,生产要删掉,需要校验登录再上传
+                        "/upload/**",
                         "/blog/hot",
                         "/user/code",
                         "/user/login"
