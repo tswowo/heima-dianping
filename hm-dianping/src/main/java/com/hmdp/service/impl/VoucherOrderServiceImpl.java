@@ -86,7 +86,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     }
 
     private class VoucherOrderHandle implements Runnable {
-        String queueName = "stream.orders";
+        String queueName = "stream:orders";
 
         @Override
         public void run() {
@@ -148,7 +148,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     @PostConstruct
     private void init() {
-        String key = "stream.orders";
+        String key = "stream:orders";
         String group = "g1";
 
         try {
